@@ -1,0 +1,285 @@
+# Room Occupancy Manager - Example Configuration
+# Copy this to your AppDaemon apps.yaml and customize for your needs
+
+room_occupancy_manager:
+  module: rooms_occupancy_manager
+  class: RoomOccupancyManager
+  rooms:
+
+    # ===========================================================================
+    # Example 1: Full-Featured Bathroom
+    # Includes all sensor types and environmental controls
+    # ===========================================================================
+    kids_bathroom:
+      behavior: bathroom  # Lights only turn OFF automatically (never ON)
+
+      # Occupancy Sensors
+      motion_sensors:
+        - binary_sensor.kids_bathroom_motion
+      presence_sensors:  # Recommended for accuracy
+        - binary_sensor.kids_bathroom_presence
+      doors:
+        - binary_sensor.kids_bathroom_door
+
+      # Environmental Sensors (for fan control)
+      humidity_sensors:
+        - sensor.kids_bathroom_humidity
+      temperature_sensors:
+        - sensor.kids_bathroom_temperature
+
+      # Controlled Entities
+      lights:
+        - light.kids_bathroom_light
+      fans:
+        - fan.kids_bathroom_fan
+
+      # Timer for occupancy tracking
+      timer_entity: timer.kids_bathroom_occupancy
+
+      # Environmental Thresholds
+      humidity_threshold: 10.0    # % increase above baseline to trigger fan
+      temperature_threshold: 6.0  # °F increase above baseline to trigger fan
+
+      # Optional: Disable automatic light control
+      light_override: input_boolean.kids_bathroom_light_override
+
+    # ===========================================================================
+    # Example 2: Guest Bathroom (Minimal Configuration)
+    # Basic setup with essential sensors only
+    # ===========================================================================
+    guest_bathroom:
+      behavior: bathroom
+
+      motion_sensors:
+        - binary_sensor.guest_bathroom_motion
+
+      humidity_sensors:
+        - sensor.guest_bathroom_humidity
+
+      lights:
+        - light.guest_bathroom_vanity
+      fans:
+        - switch.guest_bathroom_fan  # Can use switch entities
+
+      timer_entity: timer.guest_bathroom_occupancy
+
+      humidity_threshold: 12.0  # Slightly higher threshold
+
+    # ===========================================================================
+    # Example 3: Master Bathroom (Advanced)
+    # Multiple lights and all sensor types
+    # ===========================================================================
+    master_bathroom:
+      behavior: bathroom
+
+      motion_sensors:
+        - binary_sensor.master_bathroom_motion
+      presence_sensors:
+        - binary_sensor.master_bathroom_presence
+      doors:
+        - binary_sensor.master_bathroom_door
+
+      humidity_sensors:
+        - sensor.master_bathroom_humidity
+      temperature_sensors:
+        - sensor.master_bathroom_temperature
+
+      lights:
+        - light.master_bathroom_vanity
+        - light.master_bathroom_shower
+        - light.master_bathroom_toilet
+      fans:
+        - fan.master_bathroom_exhaust
+
+      timer_entity: timer.master_bathroom_occupancy
+
+      humidity_threshold: 8.0     # Lower threshold for faster response
+      temperature_threshold: 5.0
+
+      light_override: input_boolean.master_bathroom_light_override
+
+    # ===========================================================================
+    # Example 4: Regular Room (Normal Behavior)
+    # Full automatic light control
+    # ===========================================================================
+    living_room:
+      behavior: normal  # Lights turn ON and OFF automatically
+
+      motion_sensors:
+        - binary_sensor.living_room_motion
+      presence_sensors:
+        - binary_sensor.living_room_presence
+
+      lights:
+        - light.living_room_ceiling
+        - light.living_room_floor_lamp
+        - light.living_room_table_lamp
+
+      timer_entity: timer.living_room_occupancy
+
+    # ===========================================================================
+    # Example 5: Bedroom (Normal with Override)
+    # ===========================================================================
+    master_bedroom:
+      behavior: normal
+
+      motion_sensors:
+        - binary_sensor.master_bedroom_motion
+      presence_sensors:
+        - binary_sensor.master_bedroom_presence
+
+      lights:
+        - light.master_bedroom_ceiling
+        - light.master_bedroom_bedside_lamp
+
+      timer_entity: timer.master_bedroom_occupancy
+
+      light_override: input_boolean.bedroom_sleep_mode
+
+    # ===========================================================================
+    # Example 6: Garage (Night-Only Mode)
+    # Lights activate only during night hours
+    # ===========================================================================
+    garage:
+      behavior: night_only
+
+      motion_sensors:
+        - binary_sensor.garage_motion
+      doors:
+        - binary_sensor.garage_door
+
+      lights:
+        - light.garage_overhead
+
+      timer_entity: timer.garage_occupancy
+
+      # Define night hours
+      night_start: "21:00:00"  # 9 PM
+      night_end: "07:00:00"    # 7 AM
+
+    # ===========================================================================
+    # Example 7: Utility Room (Night-Only with Fan)
+    # ===========================================================================
+    laundry_room:
+      behavior: night_only
+
+      motion_sensors:
+        - binary_sensor.laundry_room_motion
+
+      lights:
+        - light.laundry_room_overhead
+      fans:
+        - switch.laundry_room_exhaust
+
+      timer_entity: timer.laundry_room_occupancy
+
+      night_start: "20:00:00"
+      night_end: "08:00:00
+
+    # ===========================================================================
+    # Example 8: Hallway (Normal with Short Timer)
+    # ===========================================================================
+    hallway:
+      behavior: normal
+
+      motion_sensors:
+        - binary_sensor.hallway_motion_1
+        - binary_sensor.hallway_motion_2
+
+      lights:
+        - light.hallway_ceiling
+
+      timer_entity: timer.hallway_occupancy  # Set to 00:01:00 for quick shutoff
+
+    # ===========================================================================
+    # Example 9: Office (Normal with Presence Sensor)
+    # ===========================================================================
+    home_office:
+      behavior: normal
+
+      motion_sensors:
+        - binary_sensor.office_motion
+      presence_sensors:
+        - binary_sensor.office_desk_presence  # mmWave sensor recommended
+
+      lights:
+        - light.office_ceiling
+        - light.office_desk_lamp
+
+      timer_entity: timer.office_occupancy
+
+      light_override: input_boolean.office_manual_control
+
+    # ===========================================================================
+    # Example 10: Multiple Bathrooms with Different Settings
+    # ===========================================================================
+    powder_room:
+      behavior: bathroom
+      motion_sensors: [binary_sensor.powder_room_motion]
+      humidity_sensors: [sensor.powder_room_humidity]
+      lights: [light.powder_room_vanity]
+      fans: [switch.powder_room_fan]
+      timer_entity: timer.powder_room_occupancy
+      humidity_threshold: 15.0  # Higher threshold for small bathroom
+
+# ===========================================================================
+# Required Home Assistant Configuration (configuration.yaml)
+# ===========================================================================
+# Add these timer entities to your configuration.yaml:
+#
+# timer:
+#   kids_bathroom_occupancy:
+#     duration: "00:05:00"
+#     name: "Kids Bathroom Occupancy Timer"
+#
+#   guest_bathroom_occupancy:
+#     duration: "00:05:00"
+#     name: "Guest Bathroom Occupancy Timer"
+#
+#   master_bathroom_occupancy:
+#     duration: "00:05:00"
+#     name: "Master Bathroom Occupancy Timer"
+#
+#   living_room_occupancy:
+#     duration: "00:10:00"
+#     name: "Living Room Occupancy Timer"
+#
+#   garage_occupancy:
+#     duration: "00:02:00"
+#     name: "Garage Occupancy Timer"
+#
+#   laundry_room_occupancy:
+#     duration: "00:03:00"
+#     name: "Laundry Room Occupancy Timer"
+#
+#   hallway_occupancy:
+#     duration: "00:01:00"
+#     name: "Hallway Occupancy Timer"
+#
+#   office_occupancy:
+#     duration: "00:15:00"
+#     name: "Office Occupancy Timer"
+#
+#   powder_room_occupancy:
+#     duration: "00:05:00"
+#     name: "Powder Room Occupancy Timer"
+#
+# ===========================================================================
+# Optional Light Override Input Booleans (configuration.yaml)
+# ===========================================================================
+# input_boolean:
+#   kids_bathroom_light_override:
+#     name: "Kids Bathroom Light Override"
+#     icon: mdi:light-switch
+#
+#   master_bathroom_light_override:
+#     name: "Master Bathroom Light Override"
+#     icon: mdi:light-switch
+#
+#   bedroom_sleep_mode:
+#     name: "Bedroom Sleep Mode"
+#     icon: mdi:sleep
+#
+#   office_manual_control:
+#     name: "Office Manual Control"
+#     icon: mdi:hand-back-right

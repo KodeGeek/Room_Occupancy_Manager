@@ -1,0 +1,7 @@
+{
+  "name": "Room Occupancy Manager",
+  "content_in_root": false,
+  "filename": "rooms_occupancy_manager.py",
+  "render_readme": true,
+  "homeassistant": "2024.1.0"
+}
