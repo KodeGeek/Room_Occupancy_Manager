@@ -75,6 +75,29 @@ A sophisticated AppDaemon app for Home Assistant that provides intelligent room 
 
 ### Step 1: Create Required Home Assistant Entities
 
+#### Derivative Sensors for Rate-of-Change Detection (configuration.yaml)
+
+The app can optionally use Home Assistant's derivative sensors for enhanced rate-of-change detection:
+
+```yaml
+sensor:
+  # Temperature rate sensor - detects rapid temperature changes
+  - platform: derivative
+    source: sensor.kids_bathroom_temperature
+    name: 'Kids Bathroom Temperature Rate'
+    unit_time: min
+    time_window: '00:05:00'  # 5-minute statistical window
+
+  # Humidity rate sensor - detects rapid humidity changes
+  - platform: derivative
+    source: sensor.kids_bathroom_humidity
+    name: 'Kids Bathroom Humidity Rate'
+    unit_time: min
+    time_window: '00:03:00'  # 3-minute window for faster response
+```
+
+**Note**: Derivative sensors are optional but recommended for environments with significant HVAC cycling or temperature fluctuations. The app will calculate rate-of-change internally if these sensors are not configured.
+
 #### Timer Entities (configuration.yaml)
 ```yaml
 timer:
@@ -115,9 +138,15 @@ room_occupancy_manager:
       doors:
         - binary_sensor.kids_bathroom_door
       humidity_sensors:
-        - sensor.kids_bathroom_hsensor_humidity
+        - sensor.kids_bathroom_humidity
       temperature_sensors:
-        - sensor.kids_bathroom_hsensor_temperature
+        - sensor.kids_bathroom_temperature
+
+      # Optional: Derivative rate sensors for enhanced detection
+      temperature_rate_sensors:
+        - sensor.kids_bathroom_temperature_rate
+      humidity_rate_sensors:
+        - sensor.kids_bathroom_humidity_rate
 
       # Controlled Entities
       lights:
@@ -242,6 +271,8 @@ room_occupancy_manager:
 | `doors` | list | No | - | Door sensor entities |
 | `humidity_sensors` | list | No | - | Humidity sensor entities (required for bathroom fan control) |
 | `temperature_sensors` | list | No | - | Temperature sensor entities (required for bathroom fan control) |
+| `temperature_rate_sensors` | list | No | - | Derivative temperature rate sensors (optional, for enhanced detection) |
+| `humidity_rate_sensors` | list | No | - | Derivative humidity rate sensors (optional, for enhanced detection) |
 | `lights` | list | Yes* | - | Light entities to control |
 | `fans` | list | No | - | Fan entities to control (bathroom mode) |
 | `timer_entity` | string | Yes | - | Timer entity for occupancy tracking |

@@ -27,6 +27,12 @@ room_occupancy_manager:
       temperature_sensors:
         - sensor.kids_bathroom_temperature
 
+      # Optional: Derivative rate sensors for enhanced detection
+      temperature_rate_sensors:
+        - sensor.kids_bathroom_temperature_rate
+      humidity_rate_sensors:
+        - sensor.kids_bathroom_humidity_rate
+
       # Controlled Entities
       lights:
         - light.kids_bathroom_light
