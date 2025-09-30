@@ -1,5 +1,6 @@
 {
   "name": "Room Occupancy Manager",
+  "category": "appdaemon",
   "content_in_root": false,
   "filename": "rooms_occupancy_manager.py",
   "render_readme": true,
