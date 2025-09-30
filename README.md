@@ -54,7 +54,7 @@ A sophisticated AppDaemon app for Home Assistant that provides intelligent room 
 2. Click on "Automation" tab
 3. Click the three dots menu in the top right
 4. Select "Custom repositories"
-5. Add the repository URL: `https://github.com/yourusername/room-occupancy-manager`
+5. Add the repository URL: `https://github.com/MuscleGeek69/Room_Occupancy_Manager`
 6. Select category: "AppDaemon"
 7. Click "Add"
 8. Click "Install" on the Room Occupancy Manager card
