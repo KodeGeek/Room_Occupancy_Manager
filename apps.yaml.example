@@ -22,14 +22,17 @@ room_occupancy_manager:
         - binary_sensor.kids_bathroom_door
 
       # Environmental Sensors (for fan control)
+      # NOTE: Temperature monitoring can cause extended fan runtime
+      # Temperature takes 3-4x longer to normalize than humidity
+      # Consider using humidity-only for faster fan shutoff
       humidity_sensors:
         - sensor.kids_bathroom_humidity
-      temperature_sensors:
-        - sensor.kids_bathroom_temperature
+      # temperature_sensors:  # Optional - may cause extended runtime
+      #   - sensor.kids_bathroom_temperature
 
       # Optional: Derivative rate sensors for enhanced detection
-      temperature_rate_sensors:
-        - sensor.kids_bathroom_temperature_rate
+      # temperature_rate_sensors:  # Only needed if using temperature_sensors
+      #   - sensor.kids_bathroom_temperature_rate
       humidity_rate_sensors:
         - sensor.kids_bathroom_humidity_rate
 
@@ -43,8 +46,8 @@ room_occupancy_manager:
       timer_entity: timer.kids_bathroom_occupancy
 
       # Environmental Thresholds
-      humidity_threshold: 10.0    # % increase above baseline to trigger fan
-      temperature_threshold: 6.0  # °F increase above baseline to trigger fan
+      humidity_threshold: 5.0     # % increase above baseline to trigger fan
+      # temperature_threshold: 6.0  # Only needed if using temperature_sensors
 
       # Optional: Disable automatic light control
       light_override: input_boolean.kids_bathroom_light_override

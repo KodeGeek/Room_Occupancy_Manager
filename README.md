@@ -15,12 +15,13 @@ A sophisticated AppDaemon app for Home Assistant that provides intelligent room 
 - **Occupancy State Tracking** - Intelligent room state management with safety checks
 
 ### Intelligent Bathroom Fan Control 🚿
-- **Occupancy-Gated Activation** ⭐ NEW - Fan only activates when room is occupied (prevents false triggers)
+- **Occupancy-Gated Activation** ⭐ - Fan only activates when room is occupied (prevents false triggers)
 - **Dual Environmental Triggers** - Humidity OR temperature detection (supports hot and cold showers)
 - **Rate-of-Change Detection** - Detects rapid temperature rises (>1°F/min) to distinguish showers from HVAC cycles
+- **Restart Recovery** ⭐ NEW - Automatically detects and corrects fan state after AppDaemon restarts
 - **Automatic Fan Shutoff** - Fan turns off when environmental conditions normalize
 - **Baseline Drift Compensation** - Adapts to seasonal temperature and humidity changes
-- **Manual Override Support** - Respects and tracks manual fan activation
+- **Manual Override Support** - Respects and tracks manual fan activation with proper restart handling
 - **Configurable Thresholds** - Customize humidity and temperature sensitivity
 
 ### Advanced Light Control 💡
@@ -139,8 +140,11 @@ room_occupancy_manager:
         - binary_sensor.kids_bathroom_door
       humidity_sensors:
         - sensor.kids_bathroom_humidity
-      temperature_sensors:
-        - sensor.kids_bathroom_temperature
+      # WARNING: Temperature monitoring can cause extended fan runtime (3-4x longer than humidity)
+      # Temperature takes much longer to normalize than humidity after showers
+      # For faster fan shutoff, consider using humidity_sensors only
+      # temperature_sensors:
+      #   - sensor.kids_bathroom_temperature
 
       # Optional: Derivative rate sensors for enhanced detection
       temperature_rate_sensors:
@@ -158,7 +162,7 @@ room_occupancy_manager:
       timer_entity: timer.kids_bathroom_occupancy
 
       # Environmental Thresholds (adjust based on your environment)
-      humidity_threshold: 10.0    # Percentage increase above baseline
+      humidity_threshold: 5.0     # Percentage increase above baseline (production best practice)
       temperature_threshold: 6.0  # Degrees F increase above baseline
 
       # Optional: Light override
@@ -276,7 +280,7 @@ room_occupancy_manager:
 | `lights` | list | Yes* | - | Light entities to control |
 | `fans` | list | No | - | Fan entities to control (bathroom mode) |
 | `timer_entity` | string | Yes | - | Timer entity for occupancy tracking |
-| `humidity_threshold` | float | No | `10.0` | Humidity increase % to trigger fan |
+| `humidity_threshold` | float | No | `5.0` | Humidity increase % to trigger fan (recommended: 5.0 for production) |
 | `temperature_threshold` | float | No | `6.0` | Temperature increase °F to trigger fan |
 | `light_override` | string | No | - | Input boolean to disable light automation |
 | `night_start` | string | No | `21:00:00` | Night mode start time (HH:MM:SS) |
@@ -352,15 +356,29 @@ Baselines update gradually when no spike is detected, ensuring accurate detectio
 
 #### 4. **Automatic Shutoff**
 Fan turns off when:
-- **Humidity**: Drops below 40% of threshold (e.g., <4% above baseline)
+- **Humidity**: Drops below 50% of threshold (e.g., <2.5% above baseline for 5% threshold)
 - **Temperature**: Drops below 50% of threshold (e.g., <3°F above baseline)
 
 This ensures the fan runs long enough to clear moisture but doesn't waste energy.
+
+**Note**: Temperature normalization typically takes 3-4x longer than humidity. For faster fan shutoff in bathrooms, consider using humidity sensors only.
 
 #### 5. **Manual Override Tracking**
 - Detects when user manually turns fan on/off
 - Manual fan activation: Fan stays on until room is empty
 - Respects user control over environmental automation
+
+#### 6. **Restart Recovery** ⭐ NEW
+The app automatically detects and corrects fan state after AppDaemon restarts:
+- **Environmental Check**: Examines current humidity/temperature levels at startup
+- **Automatic Fan Classification**: Determines if existing fan activity was automatic or manual
+- **Empty Room Detection**: Immediately turns off manual fans in empty rooms
+- **Maintains Automatic Triggers**: Preserves automatic fan operation until conditions normalize
+
+**Prevents Common Issues**:
+- ✅ Automatic fans no longer misclassified as manual after restart
+- ✅ Manual fans in empty rooms immediately shut off at startup
+- ✅ Fans continue running appropriately based on environmental conditions
 
 ### Occupancy Detection Logic
 
@@ -386,13 +404,22 @@ This prevents lights/fans from turning off while room is actually occupied.
 
 ## 🐛 Troubleshooting
 
+### Fan Stays On After AppDaemon Restart
+
+**Fixed in v2.1.0!** The app now automatically:
+- Checks environmental conditions at startup
+- Correctly classifies fans as automatic or manual
+- Immediately turns off manual fans in empty rooms
+
+No configuration changes needed - this fix is automatic.
+
 ### Fan Keeps Turning On Randomly
 
 **Cause**: Environmental thresholds too sensitive
 
 **Solution**: Increase thresholds in `apps.yaml`:
 ```yaml
-humidity_threshold: 15.0    # Increased from 10.0
+humidity_threshold: 10.0    # Increased from 5.0
 temperature_threshold: 8.0  # Increased from 6.0
 ```
 
@@ -434,11 +461,13 @@ If this is happening too frequently:
 **Possible Causes**:
 1. Environmental conditions haven't normalized
 2. Manual fan activation
+3. Temperature monitoring causing extended runtime
 
 **Solutions**:
 1. Check current humidity/temperature in Home Assistant
 2. Wait for conditions to normalize (fan will auto-shutoff)
 3. If manually activated, fan turns off when room becomes empty
+4. **Consider removing temperature sensors** - temperature takes 3-4x longer to normalize than humidity. For faster shutoff, use humidity_sensors only.
 
 ### Logs Show "Permission Denied"
 
@@ -458,6 +487,10 @@ Look for messages like:
 ```
 🚿 SHOWER DETECTED! Humidity spike in kids_bathroom: 12.3% increase - turning on fan automatically
 💨 HUMIDITY NORMALIZED! Fan auto-shutoff in kids_bathroom: humidity dropped to 3.2% above baseline
+🔄 Fan already ON at startup - checking environmental conditions
+✅ Humidity elevated (15.2%) - treating as AUTOMATIC trigger
+⚠️ No environmental justification - treating as MANUAL activation
+🛑 Room X is empty with manual fan - turning off fan
 ```
 
 ### Tuning Thresholds
@@ -470,7 +503,7 @@ Start with default values and monitor for 1-2 weeks:
 
 **Fan Doesn't Activate During Showers?**
 - Decrease thresholds
-- Try: 7-8% humidity, 4-5°F temperature
+- Try: 3-4% humidity, 4-5°F temperature
 
 **Optimal Settings Depend On**:
 - Bathroom size and ventilation
@@ -551,13 +584,15 @@ garage:
 
 ## 🔐 Best Practices
 
-1. **Start Conservative**: Use higher thresholds initially (10% humidity, 6°F temperature)
+1. **Start Conservative**: Use recommended thresholds (5% humidity, 6°F temperature)
 2. **Monitor Logs**: Watch for false triggers over 1-2 weeks
 3. **Use Presence Sensors**: More accurate than motion sensors alone
-4. **Create Proper Timers**: Define timer entities in `configuration.yaml`
-5. **Test Thoroughly**: Verify each room's behavior matches expectations
-6. **Bathroom Mode**: Always use `behavior: bathroom` for bathrooms to maintain privacy
-7. **Light Override**: Create override input_booleans for manual control when needed
+4. **Humidity-Only for Bathrooms**: Skip temperature sensors to avoid extended fan runtime (3-4x faster shutoff)
+5. **Create Proper Timers**: Define timer entities in `configuration.yaml`
+6. **Test Thoroughly**: Verify each room's behavior matches expectations
+7. **Bathroom Mode**: Always use `behavior: bathroom` for bathrooms to maintain privacy
+8. **Light Override**: Create override input_booleans for manual control when needed
+9. **Restart Recovery**: The app automatically handles AppDaemon restarts - no special configuration needed
 
 ## 🤝 Contributing
 
@@ -578,6 +613,18 @@ Created for the Home Assistant community. Special thanks to all contributors and
 - **Home Assistant Community**: [Community Forum Thread](https://community.home-assistant.io/)
 
 ## 📝 Changelog
+
+### Version 2.1.0 (2025-10-02)
+- ⭐ **CRITICAL FIX**: AppDaemon restart bug causing automatic fans to be misclassified as manual
+- ⭐ **CRITICAL FIX**: Manual fans in empty rooms persist after restart
+- ⭐ NEW: Restart recovery system with environmental condition checking
+- ⭐ NEW: Empty room detection and immediate fan shutoff at startup
+- Normalized humidity threshold from 40% to 50% for consistency
+- Updated configuration examples with temperature monitoring warnings
+- Improved humidity threshold recommendations (10% → 5% for production)
+- Enhanced logging with emoji indicators for restart scenarios
+
+**Breaking Changes**: None - All changes are backward compatible
 
 ### Version 2.0.0 (2025-09-30)
 - ⭐ NEW: Occupancy-gated fan activation (prevents false triggers)

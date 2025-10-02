@@ -148,13 +148,55 @@ class RoomOccupancyManager(hass.Hass):
             self.log(f"Listening to fan state changes: {fan}")
 
             # Initialize fan state tracking
+            # Initialize fan state tracking with environmental condition checking
             try:
                 current_fan_state = self.get_state(fan)
                 if current_fan_state == "on":
-                    # Fan is already on at startup - assume manual until proven otherwise
-                    room_config['fan_active'] = True
-                    room_config['fan_triggered_by'] = 'manual'
-                    self.log(f"Fan {fan} already ON at startup - marked as manual activation")
+                    # Fan is already on at startup - check environmental conditions
+                    self.log(f"Fan {fan} already ON at startup - checking environmental conditions")
+                    
+                    fan_trigger = None
+                    
+                    # Check if humidity conditions justify automatic trigger
+                    if 'humidity_sensors' in room_config and room_config['humidity_sensors']:
+                        current_humidity = room_config.get('last_humidity', 0)
+                        baseline_humidity = room_config.get('baseline_humidity', 50.0)
+                        humidity_threshold = room_config.get('humidity_threshold', 5.0)
+                        humidity_increase = current_humidity - baseline_humidity
+                        
+                        if humidity_increase >= humidity_threshold:
+                            self.log(f"🌡️ Humidity elevated ({humidity_increase:.1f}%) - treating as AUTOMATIC trigger")
+                            fan_trigger = 'humidity'
+                    
+                    # Check if temperature conditions justify automatic trigger
+                    if not fan_trigger and 'temperature_sensors' in room_config and room_config['temperature_sensors']:
+                        current_temp = room_config.get('last_temperature', 20.0)
+                        baseline_temp = room_config.get('baseline_temperature', 20.0)
+                        temp_threshold = room_config.get('temperature_threshold', 3.0)
+                        temp_increase = current_temp - baseline_temp
+                        
+                        if temp_increase >= temp_threshold:
+                            self.log(f"🌡️ Temperature elevated ({temp_increase:.1f}°F) - treating as AUTOMATIC trigger")
+                            fan_trigger = 'temperature'
+                    
+                    # Set trigger source
+                    # Set trigger source
+                    if fan_trigger:
+                        room_config['fan_active'] = True
+                        room_config['fan_triggered_by'] = fan_trigger
+                    else:
+                        # No environmental justification - assume manual
+                        self.log(f"🔧 No environmental justification - treating as MANUAL activation")
+                        room_config['fan_active'] = True
+                        room_config['fan_triggered_by'] = 'manual'
+                        
+                        # If room is empty and fan is manual, turn it off immediately
+                        # (User left room with fan on, then AppDaemon restarted)
+                        if not self.is_room_occupied(room_name):
+                            self.log(f"🔧 Room {room_name} is empty with manual fan - turning off fan")
+                            self.turn_off_fans(room_config)
+                            room_config['fan_active'] = False
+                            room_config['fan_triggered_by'] = None
             except Exception as e:
                 self.log(f"Could not get initial fan state for {fan}: {e}", level="WARNING")
 
@@ -372,6 +414,41 @@ class RoomOccupancyManager(hass.Hass):
                 # System was expecting fan to be on (automatic activation already tracked)
                 self.log(f"Automatic fan activation confirmed in {room_name}")
 
+        elif new == "on" and old in [None, 'unknown', 'unavailable']:
+            # Fan is ON after restart/initialization - check environmental conditions
+            self.log(f"Fan state detected as ON during startup in {room_name} - checking environmental conditions")
+            
+            # Check if humidity conditions justify automatic trigger
+            if 'humidity_sensors' in room_config and room_config['humidity_sensors']:
+                current_humidity = room_config.get('last_humidity', 0)
+                baseline_humidity = room_config.get('baseline_humidity', 50.0)
+                humidity_threshold = room_config.get('humidity_threshold', 5.0)
+                humidity_increase = current_humidity - baseline_humidity
+                
+                if humidity_increase >= humidity_threshold:
+                    self.log(f"🌡️ Humidity elevated ({humidity_increase:.1f}%) - treating as AUTOMATIC trigger")
+                    room_config['fan_active'] = True
+                    room_config['fan_triggered_by'] = 'humidity'
+                    return
+            
+            # Check if temperature conditions justify automatic trigger
+            if 'temperature_sensors' in room_config and room_config['temperature_sensors']:
+                current_temp = room_config.get('last_temperature', 20.0)
+                baseline_temp = room_config.get('baseline_temperature', 20.0)
+                temp_threshold = room_config.get('temperature_threshold', 3.0)
+                temp_increase = current_temp - baseline_temp
+                
+                if temp_increase >= temp_threshold:
+                    self.log(f"🌡️ Temperature elevated ({temp_increase:.1f}°F) - treating as AUTOMATIC trigger")
+                    room_config['fan_active'] = True
+                    room_config['fan_triggered_by'] = 'temperature'
+                    return
+            
+            # No elevated environmental conditions - assume manual
+            self.log(f"🔧 No environmental justification - treating as MANUAL activation")
+            room_config['fan_active'] = True
+            room_config['fan_triggered_by'] = 'manual'
+
         elif new == "off" and old == "on":
             # Fan turned OFF
             if room_config.get('fan_active', False):
@@ -383,7 +460,6 @@ class RoomOccupancyManager(hass.Hass):
                 # Reset fan tracking
                 room_config['fan_active'] = False
                 room_config['fan_triggered_by'] = None
-
     def timer_finished(self, entity, attribute, old, new, kwargs):
         """Handle when room timer finishes - FIXED to check occupancy properly."""
         room_name = kwargs["room_name"]
@@ -496,7 +572,7 @@ class RoomOccupancyManager(hass.Hass):
             humidity_increase = current_humidity - baseline_humidity
 
             # Keep fan on if humidity is still significantly elevated
-            normalized_threshold = humidity_threshold * 0.4  # 40% of original threshold
+            normalized_threshold = humidity_threshold * 0.8  # 80% of original threshold
             if humidity_increase >= normalized_threshold:
                 self.log(f"Humidity still elevated: {humidity_increase:.1f}% (threshold: {normalized_threshold:.1f}%)")
                 return True
